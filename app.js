@@ -27,12 +27,13 @@ app.use(session({
 app.use(passport.initialize());
 //telling passport to use for session
 app.use(passport.session());
-mongoose.connect("mongodb://127.0.0.1:27017/userDB", {useNewUrlParser:true});
+mongoose.connect(process.env.DB_URL, {useNewUrlParser:true});
 
 const userSchema = new mongoose.Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 //adding passportLocalMongoose to the schema
@@ -99,12 +100,40 @@ app.get("/register", (req, res) => {
     res.render("register");
 });
 
-app.get("/secrets", (req, res) => {
+app.get("/secrets", function(req, res) {
+    User.find({"secret": {$ne: null}}, function(err, foundUsers) {
+        if(err) {
+            console.log(err);
+        } else {
+            if(foundUsers) {
+                res.render("secrets", {usersWithSecrets: foundUsers});
+            }
+        }
+    });
+});
+
+app.get("/submit", (req, res) => {
     if(req.isAuthenticated()) {
-        res.render("secrets");
+        res.render("submit");
     } else {
         res.redirect("/login");
     }
+});
+
+app.post("/submit", (req, res) => {
+    const submittedSecret = req.body.secret;
+    User.findById(req.user.id, function(err, foundUser) {
+        if(err) {
+            console.log(err);
+        } else {
+            if(foundUser) {
+                foundUser.secret = submittedSecret;
+                foundUser.save(function(){
+                    res.redirect("/secrets");
+                });
+            }
+        }
+    });
 });
 
 app.get("/logout", (req, res) => {
